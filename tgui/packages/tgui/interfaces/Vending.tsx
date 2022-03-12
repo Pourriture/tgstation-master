@@ -172,17 +172,18 @@ const ProductDisplay = (_, context) => {
 const VendingRow = (props, context) => {
   const { data } = useBackend<VendingData>(context);
   const { custom, product, productStock } = props;
-  const { department, jobDiscount, onstation, user } = data;
+  const { access, department, jobDiscount, onstation, user } = data;
   const free
     = !onstation
-    || product.price === 0
-    || (!product.premium && department && user);
-  const discount = department === user?.department;
+    || product.price === 0;
+  const discount = !product.premium && department === user?.department;
+  const remaining = custom ? product.amount : productStock.amount;
   const redPrice = Math.round(product.price * jobDiscount);
   const disabled
-    = productStock.amount === 0
+    = remaining === 0
     || (onstation && !user)
-    || (onstation && (discount ? redPrice : product.price) > user?.cash);
+    || (onstation && !access
+    && (discount ? redPrice : product.price) > user?.cash);
 
   return (
     <Table.Row>
@@ -201,7 +202,7 @@ const VendingRow = (props, context) => {
         <ProductStock
           custom={custom}
           product={product}
-          productStock={productStock}
+          remaining={remaining}
         />
       </Table.Cell>
       <Table.Cell collapsing textAlign="center">
@@ -260,17 +261,16 @@ const ProductColorSelect = (props, context) => {
 
 /** Displays a colored indicator for remaining stock */
 const ProductStock = (props) => {
-  const { custom, product, productStock } = props;
+  const { custom, product, remaining } = props;
 
   return (
     <Box
       color={
-        (custom && 'good')
-        || (productStock.amount <= 0 && 'bad')
-        || (productStock.amount <= product.max_amount / 2 && 'average')
+        (remaining <= 0 && 'bad')
+        || (!custom && remaining <= product.max_amount / 2 && 'average')
         || 'good'
       }>
-      {custom ? product.amount : productStock.amount} left
+      {remaining} left
     </Box>
   );
 };
@@ -278,18 +278,15 @@ const ProductStock = (props) => {
 /** The main button to purchase an item. */
 const ProductButton = (props, context) => {
   const { act, data } = useBackend<VendingData>(context);
-  const { access, onstation } = data;
-  const { custom, discount, disabled, product, redPrice } = props;
+  const { access } = data;
+  const { custom, discount, disabled, free, product, redPrice } = props;
   const customPrice = access ? 'FREE' : product.price + ' cr';
-  let standardPrice;
-  if (!onstation) {
-    standardPrice = 'FREE';
+  let standardPrice = product.price + ' cr';
+  if (free) {
+    standardPrice = "FREE";
   } else if (discount) {
-    standardPrice = `${redPrice} cr`;
-  } else {
-    standardPrice = `${product.price} cr`;
+    standardPrice = redPrice + ' cr';
   }
-
   return custom ? (
     <Button
       fluid

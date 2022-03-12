@@ -1,10 +1,21 @@
+/// The chance for a manifest or crate to be created with errors 
+#define MANIFEST_ERROR_CHANCE 5
+
+// MANIFEST BITFLAGS
+/// Determines if the station name will be incorrect on the manifest
+#define MANIFEST_ERROR_NAME (1 << 0)
+/// Determines if contents will be deleted from the manifest but still be present in the crate
+#define MANIFEST_ERROR_CONTENTS (1 << 1)
+/// Determines if contents will be deleted from the crate but still be present in the manifest 
+#define MANIFEST_ERROR_ITEM (1 << 2)
+
 /obj/item/paper/fluff/jobs/cargo/manifest
 	var/order_cost = 0
 	var/order_id = 0
 	var/errors = 0
 
-/obj/item/paper/fluff/jobs/cargo/manifest/New(atom/A, id, cost)
-	..()
+/obj/item/paper/fluff/jobs/cargo/manifest/Initialize(mapload, id, cost)
+	. = ..()
 	order_id = id
 	order_cost = cost
 
@@ -30,12 +41,13 @@
 	var/discounted_pct
 	///area this order wants to reach, if not null then it will come with the deliver_first component set to this area
 	var/department_destination
+	var/department_destination_name
 	var/datum/supply_pack/pack
 	var/datum/bank_account/paying_account
 	var/obj/item/coupon/applied_coupon
 
-/datum/supply_order/New(datum/supply_pack/pack, orderer, orderer_rank, orderer_ckey, reason, paying_account, department_destination, coupon)
-	id = SSshuttle.ordernum++
+/datum/supply_order/New(datum/supply_pack/pack, orderer, orderer_rank, orderer_ckey, reason, paying_account, department_destination, coupon, department_destination_name=NONE)
+	id = SSshuttle.order_number++
 	src.pack = pack
 	src.orderer = orderer
 	src.orderer_rank = orderer_rank
@@ -43,6 +55,7 @@
 	src.reason = reason
 	src.paying_account = paying_account
 	src.department_destination = department_destination
+	src.department_destination_name = department_destination_name
 	src.applied_coupon = coupon
 
 /datum/supply_order/proc/generateRequisition(turf/T)
@@ -65,7 +78,7 @@
 	return P
 
 /datum/supply_order/proc/generateManifest(obj/container, owner, packname, cost) //generates-the-manifests.
-	var/obj/item/paper/fluff/jobs/cargo/manifest/P = new(container, id, cost)
+	var/obj/item/paper/fluff/jobs/cargo/manifest/P = new(null, id, cost)
 
 	var/station_name = (P.errors & MANIFEST_ERROR_NAME) ? new_station_name() : station_name()
 
@@ -119,7 +132,7 @@
 		account_holder = "Cargo"
 	var/obj/structure/closet/crate/crate = pack.generate(A, paying_account)
 	if(department_destination)
-		crate.AddElement(/datum/element/deliver_first, department_destination, pack.cost)
+		crate.AddElement(/datum/element/deliver_first, department_destination, pack.cost, goal_area_type_name=department_destination_name)
 	generateManifest(crate, account_holder, pack, pack.cost)
 	return crate
 
@@ -128,3 +141,8 @@
 		new I(miscbox)
 	generateManifest(miscbox, misc_own, "", misc_cost)
 	return
+
+#undef MANIFEST_ERROR_CHANCE
+#undef MANIFEST_ERROR_NAME
+#undef MANIFEST_ERROR_CONTENTS
+#undef MANIFEST_ERROR_ITEM

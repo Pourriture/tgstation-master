@@ -60,10 +60,12 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 		/obj/item/storage/belt/military/snack = 2,
 		/obj/item/toy/brokenradio = 2,
 		/obj/item/toy/braintoy = 2,
+		/obj/item/toy/plush/gnome = 2,
 		/obj/item/toy/eldritch_book = 2,
 		/obj/item/storage/box/heretic_box = 1,
 		/obj/item/toy/foamfinger = 2,
 		/obj/item/clothing/glasses/trickblindfold = 2))
+
 
 /obj/machinery/computer/arcade
 	name = "random arcade"
@@ -284,6 +286,8 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 	var/gamerSkill = 0
 	if(usr?.mind)
 		gamerSkill = usr.mind.get_skill_level(/datum/skill/gaming)
+
+	usr.played_game()
 
 	if (!blocked && !gameover)
 		var/attackamt = rand(5,7) + rand(0, gamerSkill)
@@ -548,7 +552,7 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 			playsound(loc, 'sound/arcade/win.ogg', 50, TRUE)
 
 			if(obj_flags & EMAGGED)
-				new /obj/effect/spawner/newbomb/timer(loc)
+				new /obj/effect/spawner/newbomb/plasma(loc, /obj/item/assembly/timer)
 				new /obj/item/clothing/head/collectable/petehat(loc)
 				message_admins("[ADMIN_LOOKUPFLW(usr)] has outbombed Cuban Pete and been awarded a bomb.")
 				log_game("[key_name(usr)] has outbombed Cuban Pete and been awarded a bomb.")
@@ -559,6 +563,7 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 				prizevend(user)
 				xp_gained += 50
 			SSblackbox.record_feedback("nested tally", "arcade_results", 1, list("win", (obj_flags & EMAGGED ? "emagged":"normal")))
+			user.won_game()
 
 	else if(player_hp <= 0)
 		if(timer_id)
@@ -573,6 +578,7 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 			if (istype(living_user))
 				living_user.gib()
 		SSblackbox.record_feedback("nested tally", "arcade_results", 1, list("loss", "hp", (obj_flags & EMAGGED ? "emagged":"normal")))
+		user.lost_game()
 
 	if(gameover)
 		user?.mind?.adjust_experience(/datum/skill/gaming, xp_gained+1)//always gain at least 1 point of XP
@@ -648,6 +654,7 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 	if(!c_user.get_bodypart(BODY_ZONE_L_ARM) && !c_user.get_bodypart(BODY_ZONE_R_ARM))
 		return
 	to_chat(c_user, span_warning("You move your hand towards the machine, and begin to hesitate as a bloodied guillotine emerges from inside of it..."))
+	usr.played_game()
 	if(do_after(c_user, 50, target = src))
 		to_chat(c_user, span_userdanger("The guillotine drops on your arm, and the machine sucks it in!"))
 		playsound(loc, 'sound/weapons/slice.ogg', 25, TRUE, -1)
@@ -658,10 +665,12 @@ GLOBAL_LIST_INIT(arcade_prize_pool, list(
 		chopchop.dismember()
 		qdel(chopchop)
 		user.mind?.adjust_experience(/datum/skill/gaming, 100)
+		user.won_game()
 		playsound(loc, 'sound/arcade/win.ogg', 50, TRUE)
 		prizevend(user, rand(3,5))
 	else
 		to_chat(c_user, span_notice("You (wisely) decide against putting your hand in the machine."))
+		user.lost_game()
 
 /obj/machinery/computer/arcade/amputation/festive //dispenses wrapped gifts instead of arcade prizes, also known as the ancap christmas tree
 	name = "Mediborg's Festive Amputation Adventure"

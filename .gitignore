@@ -196,5 +196,6 @@ Temporary Items
 /tools/LinuxOneShot/TGS_Config
 /tools/LinuxOneShot/TGS_Instances
 /tools/LinuxOneShot/TGS_Logs
-.vs/slnx.sqlite
-.vs/VSWorkspaceState.json
+
+# Autowiki
+/tools/autowiki/node_modules

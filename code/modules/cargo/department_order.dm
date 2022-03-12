@@ -12,16 +12,19 @@ GLOBAL_LIST_INIT(department_order_cooldowns, list(
 	name = "department order console"
 	desc = "Used to order supplies for a department. Crates ordered this way will be locked until they reach their destination."
 	icon_screen = "supply"
-	circuit = /obj/item/circuitboard/computer/cargo
 	light_color = COLOR_BRIGHT_ORANGE
 	///reference to the order we've made UNTIL it gets sent on the supply shuttle. this is so heads can cancel it
 	var/datum/supply_order/department_order
 	///access required to override an order - this should be a head of staff for the department
 	var/override_access
-	///where this computer expects deliveries to need to go, passed onto orders
-	var/department_delivery_area
+	///where this computer expects deliveries to need to go, passed onto orders. it will see if the FIRST one exists, then try a fallback. if no fallbacks it throws an error
+	var/list/department_delivery_areas = list()
 	///which groups this computer can order from
 	var/list/dep_groups = list()
+	var/department_destination_name = NONE
+
+/obj/machinery/computer/department_orders/Initialize(mapload, obj/item/circuitboard/board)
+	. = ..()
 
 /obj/machinery/computer/department_orders/ui_interact(mob/user, datum/tgui/ui)
 	ui = SStgui.try_update_ui(user, src, ui)
@@ -88,9 +91,9 @@ GLOBAL_LIST_INIT(department_order_cooldowns, list(
 			playsound(src, 'sound/machines/buzz-sigh.ogg', 30, TRUE)
 			return
 
-		if(department_order && (department_order in SSshuttle.shoppinglist))
+		if(department_order && (department_order in SSshuttle.shopping_list))
 			GLOB.department_order_cooldowns[type] = 0
-			SSshuttle.shoppinglist -= department_order
+			SSshuttle.shopping_list -= department_order
 			department_order = null
 			UnregisterSignal(SSshuttle, COMSIG_SUPPLY_SHUTTLE_BUY)
 		return TRUE
@@ -121,8 +124,8 @@ GLOBAL_LIST_INIT(department_order_cooldowns, list(
 		rank = "Silicon"
 	//already have a signal to finalize the order
 	var/already_signalled = department_order ? TRUE : FALSE
-	department_order = new(pack, name, rank, ckey, "", null, department_delivery_area, null)
-	SSshuttle.shoppinglist += department_order
+	department_order = new(pack, name, rank, ckey, "", null, department_delivery_areas, null, department_destination_name=department_destination_name)
+	SSshuttle.shopping_list += department_order
 	if(!already_signalled)
 		RegisterSignal(SSshuttle, COMSIG_SUPPLY_SHUTTLE_BUY, .proc/finalize_department_order)
 	say("Order processed. Cargo will deliver the crate when it comes in on their shuttle. NOTICE: Heads of staff may override the order.")
@@ -131,7 +134,7 @@ GLOBAL_LIST_INIT(department_order_cooldowns, list(
 ///signal when the supply shuttle begins to spawn orders. we forget the current order preventing it from being overridden (since it's already past the point of no return on undoing the order)
 /obj/machinery/computer/department_orders/proc/finalize_department_order(datum/subsystem)
 	SIGNAL_HANDLER
-	if(department_order && (department_order in SSshuttle.shoppinglist))
+	if(department_order && (department_order in SSshuttle.shopping_list))
 		department_order = null
 	UnregisterSignal(subsystem, COMSIG_SUPPLY_SHUTTLE_BUY)
 
@@ -147,35 +150,150 @@ GLOBAL_LIST_INIT(department_order_cooldowns, list(
 
 /obj/machinery/computer/department_orders/service
 	name = "service order console"
-	department_delivery_area = /area/hallway/secondary/service
+	circuit = /obj/item/circuitboard/computer/service_orders
+	department_delivery_areas = list(
+		/area/hallway/secondary/service, 
+		/area/service,
+		/area/service/kitchen,
+		/area/service/kitchen/coldroom,
+		/area/service/kitchen/diner,
+		/area/service/kitchen/abandoned,
+		/area/service/bar,
+		/area/service/bar/atrium,
+		/area/service/electronic_marketing_den,
+		/area/service/abandoned_gambling_den,
+		/area/service/abandoned_gambling_den/gaming,
+		/area/service/theater,
+		/area/service/library,
+		/area/service/library/lounge,
+		/area/service/library/artgallery,
+		/area/service/library/private,
+		/area/service/library/upper,
+		/area/service/library/printer,
+		/area/service/chapel,
+		/area/service/chapel/monastery,
+		/area/service/chapel/office,
+		/area/service/chapel/asteroid,
+		/area/service/chapel/asteroid/monastery,
+		/area/service/chapel/dock,
+		/area/service/chapel/storage,
+		/area/service/janitor,
+		/area/service/hydroponics,
+		/area/service/hydroponics/upper,
+		/area/service/hydroponics/garden,
+		/area/service/hydroponics/garden/abandoned,
+		/area/service/hydroponics/garden/monastery,
+		/area/command/heads_quarters/hop
+	)
+	department_destination_name = "Service"
 	override_access = ACCESS_HOP
-	req_one_access = list(ACCESS_KITCHEN, ACCESS_BAR, ACCESS_HYDROPONICS, ACCESS_JANITOR, ACCESS_THEATRE)
+	req_one_access = ACCESS_SERVICE
 	dep_groups = list("Service", "Food & Hydroponics", "Livestock", "Costumes & Toys")
 
 /obj/machinery/computer/department_orders/engineering
 	name = "engineering order console"
-	department_delivery_area = /area/engineering/main
+	circuit = /obj/item/circuitboard/computer/engineering_orders
+	department_delivery_areas = list(
+		/area/engineering,
+		/area/engineering/hallway,
+		/area/engineering/engine_smes,
+		/area/engineering/main,
+		/area/engineering/atmos,
+		/area/engineering/atmos/office,
+		/area/engineering/atmos/hfr_room,
+		/area/engineering/atmos/storage/gas,
+		/area/engineering/atmos/upper,
+		/area/engineering/atmos/project,
+		/area/engineering/atmospherics_engine,
+		/area/engineering/supermatter,
+		/area/engineering/supermatter/room,
+		/area/engineering/gravity_generator,
+		/area/engineering/storage,
+		/area/engineering/storage_shared,
+		/area/engineering/transit_tube,
+		/area/engineering/storage/tech,
+		/area/engineering/storage/tcomms,
+		/area/command/heads_quarters/ce
+	)
+	department_destination_name = "Engineering"
 	override_access = ACCESS_CE
 	req_one_access = REGION_ACCESS_ENGINEERING
 	dep_groups = list("Engineering", "Engine Construction", "Canisters & Materials")
 
 /obj/machinery/computer/department_orders/science
 	name = "science order console"
-	department_delivery_area = /area/science/research
+	circuit = /obj/item/circuitboard/computer/science_orders
+	department_delivery_areas = list(/area/science,
+		/area/science/lobby,
+		/area/science/lab,
+		/area/science/xenobiology,
+		/area/science/cytology,
+		/area/science/storage,
+		/area/science/test_area,
+		/area/science/mixing,
+		/area/science/mixing/chamber,
+		/area/science/genetics,
+		/area/science/misc_lab,
+		/area/science/misc_lab/range,
+		/area/science/server,
+		/area/science/explab,
+		/area/science/robotics,
+		/area/science/robotics/lab,
+		/area/science/research,
+		/area/command/heads_quarters/rd
+	)
+	department_destination_name = "Science"
 	override_access = ACCESS_RD
 	req_one_access = REGION_ACCESS_RESEARCH
 	dep_groups = list("Science", "Livestock")
 
 /obj/machinery/computer/department_orders/security
 	name = "security order console"
-	department_delivery_area = /area/security/brig
+	circuit = /obj/item/circuitboard/computer/security_orders
+	department_delivery_areas = list(/area/security,
+		/area/security/office,
+		/area/security/brig,
+		/area/security/brig/upper,
+		/area/security/processing/cremation,
+		/area/security/interrogation,
+		/area/security/warden,
+		/area/security/detectives_office,
+		/area/security/range,
+		/area/security/execution,
+		/area/security/execution/transfer,
+		/area/security/execution/education,
+		/area/ai_monitored/security/armory,
+		/area/ai_monitored/security/armory/upper,
+		/area/command/heads_quarters/hos
+	)
+	department_destination_name = "Security"
 	override_access = ACCESS_HOS
 	req_one_access = REGION_ACCESS_SECURITY
 	dep_groups = list("Security", "Armory")
 
 /obj/machinery/computer/department_orders/medical
 	name = "medical order console"
-	department_delivery_area = /area/medical/medbay/central
+	circuit = /obj/item/circuitboard/computer/medical_orders
+	department_delivery_areas = list(/area/medical,
+		/area/medical/abandoned,
+		/area/medical/medbay/central,
+		/area/medical/medbay/aft,
+		/area/medical/storage,
+		/area/medical/paramedic,
+		/area/medical/office,
+		/area/medical/coldroom,
+		/area/medical/virology,
+		/area/medical/morgue,
+		/area/medical/chemistry,
+		/area/medical/pharmacy,
+		/area/medical/surgery,
+		/area/medical/cryo,
+		/area/medical/exam_room,
+		/area/medical/treatment_center,
+		/area/medical/psychology,
+		/area/command/heads_quarters/cmo
+	)
+	department_destination_name = "Medbay"
 	override_access = ACCESS_CMO
 	req_one_access = REGION_ACCESS_MEDBAY
 	dep_groups = list("Medical")
