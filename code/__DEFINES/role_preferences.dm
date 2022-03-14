@@ -17,6 +17,7 @@
 #define ROLE_OPERATIVE "Operative"
 #define ROLE_THIEF "Thief"
 #define ROLE_TRAITOR "Traitor"
+#define ROLE_VAMPIRE "Vampire"
 #define ROLE_WIZARD "Wizard"
 
 // Midround roles
